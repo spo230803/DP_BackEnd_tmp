@@ -1,0 +1,9 @@
+package at.spengergasse.dp_backend.repository.event;
+
+import at.spengergasse.dp_backend.models.event.SeatPlans;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface SeatPlansRepository extends JpaRepository<SeatPlans, Long> {
+}

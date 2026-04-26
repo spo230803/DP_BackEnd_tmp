@@ -1,0 +1,210 @@
+package at.spengergasse.dp_backend.controller.discor;
+
+
+import at.spengergasse.dp_backend.controller.BaseController;
+import at.spengergasse.dp_backend.dto.discor.DiscordUserRequest;
+import at.spengergasse.dp_backend.exceptions.ExeException;
+import at.spengergasse.dp_backend.service.discor.DiscordService;
+import at.spengergasse.dp_backend.service.users.UsersService;
+import com.google.gson.Gson;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+
+import java.io.IOException;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/auth/discord")
+public class DiscordAuthController extends BaseController
+{
+
+
+    private final DiscordService discordService;
+
+    @Value("${discord.client-id}")
+    private String clientId;
+
+    @Value("${discord.redirect-uri}")
+    private String redirectUri;
+
+    @Autowired
+    private UsersService usersService;
+
+    public DiscordAuthController(DiscordService discordService) {
+        this.discordService = discordService;
+    }
+
+
+    /**
+     * Funzone da chiamare dopo aver fatto il LogIn su Discovery
+     * @param code
+     * @param state
+     * @param request
+     * @return
+     */
+    @GetMapping("/callback")
+    public ResponseEntity<Object> callback(
+            @RequestParam String code,
+            @RequestParam String state,
+            HttpServletRequest request
+    )
+    {
+        try {
+            String accessToken = discordService.exchangeCodeForToken(code); //Usato per i Dati
+            DiscordUserRequest me = discordService.fetchMe(accessToken); //Estraggo i Dati Utenti
+
+            //Savlo in Sessione
+            session.setAttribute(SESSION_DISCORD_AUTH_KEY, true);         //User LogIn OKAY
+            session.setAttribute(SESSION_DISCROD_USER, me);                     // Info von Discord
+            session.setAttribute(SESSION_DISCROD_ACCESS_TOKEN, accessToken);    //Access Discrd Token
+            session.setAttribute(SESSION_USER_IP, request.getRemoteAddr());     // Salvo IP remoto del Client
+
+            //TODO : da implentare - IS Admin
+            session.setAttribute(SESSION_IS_ADMIN, false);
+
+
+            //autenticazione per Spring Security
+            var auth = new UsernamePasswordAuthenticationToken(
+                    me.getId(),                      // principal (anche me o me.getUsername())
+                    null,
+                    java.util.List.of(new SimpleGrantedAuthority("ROLE_USER"))
+            );
+
+            var context = SecurityContextHolder.createEmptyContext();
+            context.setAuthentication(auth);
+            SecurityContextHolder.setContext(context);
+
+            // salva il SecurityContext in sessione (così resta anche nelle richieste successive)
+            session.setAttribute(
+                    HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
+                    context
+            );
+
+            //Spechen der User Login
+            Long idUserUsereDB = usersService.userLogIn(me);
+            session.setAttribute(SESSION_ID_USER_UNSERE_DB, idUserUsereDB);
+
+            if(globalConstat.isDebug()) {
+                String ret = "<h1>Login OK</h1><a href=\"/api/auth/discord/status\">Vai a /status</a>";
+                return ResponseEntity.status(HttpStatus.OK).body(ret);
+            }else {
+                //Wenn die LogIn Okay ist -> Redirect to FrontEnd
+                return ResponseEntity.status(HttpStatus.OK).location(URI.create("/booking")).build();
+            }
+        }
+        catch (ExeException e){
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }//end Function
+
+    /**
+     * Facci il logOut - Distruggo la Sessione
+     * @param session
+     * @return
+     */
+    @GetMapping("/logout")
+    public ResponseEntity<?> logout(HttpSession session) {
+        session.invalidate();
+        return ResponseEntity.ok().build();
+    }
+
+
+    /**
+     * Funzione che fa il Redirecht alle AIP di Discord per LOGIN
+     * @param response
+     * @param session
+     * @throws IOException
+     */
+    @GetMapping("/login")
+    public void login(HttpServletResponse response, HttpSession session) throws IOException {
+        String state = java.util.UUID.randomUUID().toString();
+        session.setAttribute("OAUTH_STATE", state);
+
+        String authorizeUrl =
+                "https://discord.com/api/oauth2/authorize" +
+                        "?client_id=" + URLEncoder.encode(clientId, StandardCharsets.UTF_8) +
+                        "&redirect_uri=" + URLEncoder.encode(redirectUri, StandardCharsets.UTF_8) +
+                        "&response_type=code" +
+                        "&scope=" + URLEncoder.encode("identify email", StandardCharsets.UTF_8) +
+                        "&state=" + URLEncoder.encode(state, StandardCharsets.UTF_8);
+
+        response.sendRedirect(authorizeUrl);
+    }
+
+
+    /**
+     * Funzone per sapere lo stato del LogIn
+     * @param session
+     * @return Info Login
+     */
+    @GetMapping(value = "/status", produces = MediaType.TEXT_HTML_VALUE)
+    public ResponseEntity<String> getStatus(HttpSession session, HttpServletRequest request) {
+        try {
+            if (!Boolean.TRUE.equals(session.getAttribute(SESSION_DISCORD_AUTH_KEY))) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
+            //Object user = session.getAttribute(SESSION_USER_DISCROD);
+            DiscordUserRequest user = (DiscordUserRequest) session.getAttribute(SESSION_DISCROD_USER);
+
+            if(user == null) {
+                throw new ExeException("User is null", this );
+            }
+
+            HashMap<String, String> infoLogin = new HashMap<>();
+            infoLogin.put("UserId", user.getId().toString());
+            infoLogin.put("UserName", user.getUsername());
+            infoLogin.put("UserEmail", user.getEmail());
+            infoLogin.put("UserAvatar", user.getAvatar());
+            infoLogin.put("IdSession", session.getId());
+            infoLogin.put("RemoteIP", request.getRemoteAddr());
+            infoLogin.put("RemoteHost", request.getRemoteHost());
+            infoLogin.put("UserAgent", request.getHeader("User-Agent"));
+
+            Gson gson = new Gson();
+            String json = gson.toJson(infoLogin);
+
+            return ResponseEntity.ok(json);
+        } catch (Throwable t){
+            var x = new ExeException(t.getMessage(), this);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }//end - statsu
+
+    @GetMapping("/getUser")
+    public ResponseEntity<DiscordUserRequest> getUser(HttpSession session)
+    {
+        if (!Boolean.TRUE.equals(session.getAttribute(SESSION_DISCORD_AUTH_KEY))) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok((DiscordUserRequest) session.getAttribute(SESSION_DISCROD_USER));
+    }
+
+/***********************************************************************************/
+    private static String escapeHtml(String s) {
+        return s.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;");
+    }
+}//end  Class

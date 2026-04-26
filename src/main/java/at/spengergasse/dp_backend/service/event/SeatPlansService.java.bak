@@ -1,0 +1,147 @@
+package at.spengergasse.dp_backend.service.event;
+
+import at.spengergasse.dp_backend.dto.Seatplan.Element;
+import at.spengergasse.dp_backend.dto.event.SeatPlansRequest;
+import at.spengergasse.dp_backend.exceptions.ExeException;
+import at.spengergasse.dp_backend.models.event.Events;
+import at.spengergasse.dp_backend.models.event.SeatPlans;
+import at.spengergasse.dp_backend.repository.event.SeatPlansRepository;
+import at.spengergasse.dp_backend.service.BaseService;
+import jakarta.persistence.EntityNotFoundException;
+import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import tools.jackson.databind.JavaType;
+import tools.jackson.databind.ObjectMapper;
+
+import java.util.List;
+import java.util.Optional;
+
+@Service
+public class SeatPlansService extends BaseService
+{
+    @Autowired
+    private SeatPlansRepository seatPlansRepository;
+
+    @Autowired
+    private EventsService eventsService;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    public List<SeatPlans> findAll() throws EntityNotFoundException
+    {
+        List<SeatPlans> list = seatPlansRepository.findAll();
+        if(list.isEmpty()) {
+            throw ExeException.notFound("Seat Plans");
+        }
+        return list;
+    }
+
+    public SeatPlans findById(Long id) throws EntityNotFoundException, ExeException
+    {
+        if(id == null) {
+            throw ExeException.idNullOrBad("Seat Plans");
+        }
+        Optional<SeatPlans> seatPlans = seatPlansRepository.findById(id);
+        if(!seatPlans.isPresent()) {
+            throw ExeException.notFound("Seat Plans", id)
+        }
+        return seatPlans.get();
+public SeatPlans findByEvent(Long id) throws ExeException
+    {
+        //Controle Prameter
+        if(id==null) {
+            throw ExeException.idNullOrBad("Seat Plans find by Event");
+        }
+
+
+        List<SeatPlans> seatPlansList = seatPlansRepository.findAllByEventIs(id);
+        if(seatPlansList.size() > 1)
+        {
+            throw ExeException.ofInternalError("seatPlansList gefunde mehr als 1 ("+seatPlansList.size()+")");
+        } else if (seatPlansList.size() == 0) {
+            Events event = eventsService.findById(id);
+            SeatPlans newSeatPlans = new SeatPlans(
+                    event.getTitle(),
+                    null,
+                    event
+            );
+            return newSeatPlans;
+        }else {
+            return seatPlansList.getFirst();
+        }
+    }
+
+    public void deleteById(Long id) throws  EntityNotFoundException,  ExeException
+    {
+        if(id == null) {
+            throw new ExeException("SeatPlans id is null");
+        }
+        Optional<SeatPlans> seatPlans = seatPlansRepository.findById(id);
+        if(!seatPlans.isPresent()) {
+            throw new EntityNotFoundException("SeatPlans not found whit id "+id);
+        }
+        seatPlansRepository.deleteById(id);
+    }
+
+    public SeatPlans save(@Valid SeatPlansRequest request) throws ExeException
+    {
+        try{
+            Events event = eventsService.findById(request.getEventId());
+            SeatPlans newSeatPlan = new SeatPlans(
+                request.getName(),
+                request.getImgPath(),
+                event
+            );
+            return save(newSeatPlan);
+        }catch(ExeException e){
+            throw e;
+        }catch (Throwable e){
+            throw new ExeException(e.getMessage(), this);
+        }
+    }
+
+    public SeatPlans save(SeatPlans seatPlans) throws ExeException
+    {
+        try{
+            return seatPlansRepository.save(seatPlans);
+        }catch(ExeException e){
+            throw e;
+        }catch (Throwable e){
+            throw new ExeException(e.getMessage(), this);
+        }
+    }
+
+    public void saveLayout(Long seatPlanId, List<Element> elements) throws ExeException {
+        try {
+            SeatPlans seatPlan = findById(seatPlanId);
+            String json = objectMapper.writeValueAsString(elements);
+            seatPlan.setElementsJson(json);
+            seatPlansRepository.save(seatPlan);
+        } catch (ExeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ExeException("Failed to save layout JSON: " + e.getMessage(), this);
+        }
+    }
+
+    public List<Element> loadLayout(Long seatPlanId) throws ExeException {
+        try {
+            SeatPlans seatPlan = findById(seatPlanId);
+            String json = seatPlan.getElementsJson();
+            if (json == null || json.isBlank()) return List.of();
+
+            JavaType type = objectMapper.getTypeFactory()
+                    .constructCollectionType(List.class, Element.class);
+
+            return objectMapper.readValue(json, type);
+        } catch (Exception e) {
+            throw new ExeException("Failed to parse layout JSON: " + e.getMessage(), this);
+        }
+    }
+
+
+
+
+}//end Class

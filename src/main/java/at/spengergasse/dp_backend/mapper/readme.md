@@ -1,0 +1,1 @@
+Classe für create DOT (Data Objeckt Translator)
