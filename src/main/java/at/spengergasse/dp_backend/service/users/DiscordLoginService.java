@@ -22,6 +22,7 @@ public class DiscordLoginService extends BaseService
     SessionNameVar sessionNameVar = new SessionNameVar();
 
 
+/*
     public void saveLogin(DiscordLogin login){
         // Upsert: update login_time if record exists, otherwise insert
         discordLoginRepository.findByUsersId_Id(login.getUsersId().getId())
@@ -34,6 +35,11 @@ public class DiscordLoginService extends BaseService
             );
     }
 
+ */
+    public void saveLogin(DiscordLogin login) {
+        login.setLoginTime(java.time.LocalDateTime.now());
+        discordLoginRepository.save(login);
+    }
 
     public List<DiscordLogin> findAllByIdUser(HttpSession session) throws ExeException
     {
