@@ -16,7 +16,7 @@ public class CorsConfig {
         CorsConfiguration cfg = new CorsConfiguration();
         cfg.setAllowedOrigins(List.of(
                 "https://localhost:5173",   // development
-                "https://93.186.254.85")); // origin del frontend
+                "https://93.186.254.85:8443")); // origin del frontend
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         cfg.setAllowedHeaders(List.of("*"));
         cfg.setAllowCredentials(true); // metti true SOLO se usi cookie/session
