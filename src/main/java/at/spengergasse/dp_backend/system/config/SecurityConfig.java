@@ -24,6 +24,21 @@ public class SecurityConfig {
                         .ignoringRequestMatchers("/api/**")
                 )
                 .authorizeHttpRequests(auth -> auth
+                        .anyRequest().permitAll()
+                )
+                .cors(cors -> {});
+
+        return http.build();
+
+
+        /*
+        http
+                .csrf(csrf -> csrf
+                        .ignoringRequestMatchers("/api/**")
+                )
+
+
+                .authorizeHttpRequests(auth -> auth
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers("/error", "/favicon.ico").permitAll()
                         .requestMatchers("/api/auth/discord/**").permitAll()
@@ -45,6 +60,8 @@ public class SecurityConfig {
                 .cors(cors -> {});   // IMPORTANTISSIMO
                 //.csrf(csrf -> csrf.disable()); // o ignora /api/** se preferisci
         return http.build();
+
+         */
     }
 
 
