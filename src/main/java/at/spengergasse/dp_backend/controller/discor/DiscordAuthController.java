@@ -136,9 +136,10 @@ public class DiscordAuthController extends BaseController
         //return ResponseEntity.status(HttpStatus.OK).location(URI.create("/booking")).build();
         String target;
         if (!isMember) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+            target = frontendBaseUrl + "/admin";
+            //return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     // Wird noch eine 'kein Zugriff' seite erstellt
-                    .body("Kein Zugriff: Du bist kein Vereinsmitglied");
+              //      .body("Kein Zugriff: Du bist kein Vereinsmitglied");
         } else if (isAdmin) {
             target = frontendBaseUrl + "/admin";
         } else {

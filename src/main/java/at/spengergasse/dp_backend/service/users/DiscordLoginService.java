@@ -50,7 +50,7 @@ public class DiscordLoginService extends BaseService
         if(session.getAttribute( sessionNameVar.SESSION_IS_ADMIN)==null || ! (boolean) session.getAttribute(sessionNameVar.SESSION_IS_ADMIN)){
             throw new ExeException("session is not admin", HttpStatus.FORBIDDEN ,"session is not admin");
         }
-        
+
          */
         return discordLoginRepository.findAllByUsersId((Long) session.getAttribute(sessionNameVar.SESSION_ID_USER_UNSERE_DB));
     }
