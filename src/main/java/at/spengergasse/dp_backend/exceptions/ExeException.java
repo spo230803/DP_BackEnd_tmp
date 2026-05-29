@@ -120,7 +120,7 @@ public class ExeException extends BaseException
 
     public static ExeException ofConflict(String message){ return new ExeException(HttpStatus.CONFLICT, "CONFLICT", message);}
 
-	public static ExeException ofInternalError(String message){ return new ExeException(HttpStatus.INTERNAL_SERVER_ERROR, "System Error", message); }
+    public static ExeException ofInternalError(String message){ return new ExeException(HttpStatus.INTERNAL_SERVER_ERROR, "System Error", message); }
 
     public static ExeException ofBadRequest(String message){return new ExeException(HttpStatus.BAD_REQUEST, "BAD_REQUEST", message);}
  //################     PRIVETE     ######################

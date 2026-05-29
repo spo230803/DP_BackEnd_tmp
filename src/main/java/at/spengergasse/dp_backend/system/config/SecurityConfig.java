@@ -14,6 +14,7 @@ import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
 @EnableWebSecurity
 public class SecurityConfig {
 
+    /*
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
@@ -44,6 +45,36 @@ public class SecurityConfig {
                 )
                 .cors(cors -> {});   // IMPORTANTISSIMO
                 //.csrf(csrf -> csrf.disable()); // o ignora /api/** se preferisci
+        return http.build();
+    }
+
+     */
+
+
+    @Bean
+    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+
+        http
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(auth -> auth
+                        .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
+                        .requestMatchers("/error", "/favicon.ico").permitAll()
+                        .requestMatchers("/api/auth/discord/**").permitAll()
+                        .requestMatchers("/", "/css/**", "/js/**", "/images/**").permitAll()
+                        .requestMatchers("/api/sys/**").permitAll()
+                        .requestMatchers("/api/Events/**").hasAnyRole("MEMBER", "ADMIN")
+                        .anyRequest().authenticated()
+                )
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) ->
+                                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED)
+                        )
+                        .accessDeniedHandler((request, response, accessDeniedException) ->
+                                response.setStatus(HttpServletResponse.SC_FORBIDDEN)
+                        )
+                )
+                .cors(cors -> {});
+
         return http.build();
     }
 
