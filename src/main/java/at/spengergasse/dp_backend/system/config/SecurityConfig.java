@@ -33,7 +33,7 @@ public class SecurityConfig {
                         .requestMatchers("/", "/css/**", "/js/**", "/images/**").permitAll()
                         .requestMatchers("/api/sys/**").permitAll()
 
-                        .requestMatchers("/api/Events/**").hasAnyRole("MEMBER", "ADMIN")
+                        .requestMatchers("/api/Events/**").permitAll()
 
                         .anyRequest().authenticated()
                 )
